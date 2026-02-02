@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SealAI Webhook 集成 Demo</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>SealAI Webhook 集成 Demo</h1>
+      <p class="subtitle">演示如何与 SealAI Webhook 接口集成（基于 Fastify）</p>
+    </header>
+
+    <!-- 配置区 -->
+    <section class="card">
+      <h2>⚙️ 配置</h2>
+      <div class="form-group">
+        <label for="webhookUrl">SealAI Webhook 地址</label>
+        <input 
+          type="text" 
+          id="webhookUrl" 
+          placeholder="https://dev.localhost.tv:5500/api/v1/integrations/webhook/{webhookId}"
+        >
+        <small>格式示例: https://your-domain.com/api/v1/integrations/webhook/abc123</small>
+      </div>
+
+      <div class="form-group">
+        <label for="secret">Webhook Secret</label>
+        <input 
+          type="password" 
+          id="secret" 
+          placeholder="输入 32 位密钥"
+        >
+        <small>用于生成 HMAC-SHA256 签名</small>
+      </div>
+
+      <div class="form-group">
+        <label>本 Demo 的接收地址（配置到 SealAI）</label>
+        <div class="readonly-field" id="receiveUrl">等待生成...</div>
+        <small>将此地址配置为 SealAI 的 Outgoing Webhook URL</small>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+      <span id="configStatus" class="status-message"></span>
+    </section>
+
+    <!-- 单据推送区 -->
+    <section class="card">
+      <h2>📤 推送单据</h2>
+      
+      <div class="form-group">
+        <label for="documentJson">单据 JSON</label>
+        <textarea 
+          id="documentJson" 
+          rows="15"
+          placeholder="粘贴或编辑单据 JSON"
+        ></textarea>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-secondary btn-sm" onclick="loadExampleDocument(false)">加载示例单据（无附件）</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadExampleDocument(true)">加载示例单据（带附件）</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="pushDocument()">推送单据</button>
+      <button class="btn btn-secondary" onclick="clearForm()">清空表单</button>
+      
+      <div id="pushResult" class="result-box" style="display: none;">
+        <h3>推送结果</h3>
+        <pre id="pushResultContent"></pre>
+      </div>
+    </section>
+
+    <!-- 历史记录区 -->
+    <section class="card">
+      <h2>📋 历史记录</h2>
+      <div class="table-actions">
+        <button class="btn btn-secondary btn-sm" onclick="refreshHistory()">刷新</button>
+        <button class="btn btn-danger btn-sm" onclick="clearHistory()">清空历史</button>
+      </div>
+      
+      <div class="table-container">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>单据ID</th>
+              <th>单据编号</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="5" class="empty-message">暂无记录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 接收结果区 -->
+    <section class="card">
+      <h2>📥 接收的审批结果</h2>
+      <div class="table-actions">
+        <button class="btn btn-secondary btn-sm" onclick="fetchResults()">手动刷新</button>
+        <span class="status-text">自动轮询已禁用</span>
+      </div>
+
+      <div class="table-container">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>接收时间</th>
+              <th>单据ID</th>
+              <th>决策</th>
+              <th>意见</th>
+              <th>详情链接</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr>
+              <td colspan="5" class="empty-message">暂无结果</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 人工审批模态框 -->
+    <div id="approvalModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeApprovalModal()">&times;</span>
+        <h2>推送人工审批结果</h2>
+        
+        <div class="form-group">
+          <label>单据ID</label>
+          <div class="readonly-field" id="modalDocumentId"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="approverName">审批人姓名</label>
+          <input type="text" id="approverName" placeholder="张三">
+        </div>
+
+        <div class="form-group">
+          <label for="approverEmail">审批人邮箱</label>
+          <input type="email" id="approverEmail" placeholder="zhangsan@example.com">
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-success" onclick="submitApproval('approve')">审批通过</button>
+          <button class="btn btn-danger" onclick="submitApproval('reject')">审批拒绝</button>
+          <button class="btn btn-secondary" onclick="closeApprovalModal()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>SealAI Webhook 集成 Demo (Fastify) &copy; 2024</p>
+      <p><small>此项目仅用于演示，不建议用于生产环境</small></p>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
