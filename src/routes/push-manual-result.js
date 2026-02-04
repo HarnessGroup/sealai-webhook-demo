@@ -47,9 +47,22 @@ export default async function pushManualResultRoute(fastify, opts) {
         approver: approver.name,
       });
 
-      // 构造 ManualApprovalCompletedEvent
-      const event = {
-        type: 'result',
+      // 提取 webhookId（从 URL 中提取，格式：/v1/integrations/webhook/{webhookId}/...）
+      const webhookIdMatch = webhookUrl.match(/webhook\/([^/]+)/);
+      if (!webhookIdMatch) {
+        return reply.status(400).send({ error: 'webhookUrl 格式错误，无法提取 webhookId。格式应为：https://domain/v1/integrations/webhook/{webhookId}/...' });
+      }
+      const webhookId = webhookIdMatch[1];
+
+      // 构建基础 URL（去掉路径，保留协议和域名）
+      const urlObj = new URL(webhookUrl);
+      const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+
+      // 构建新的接口路径：/api/v1/integrations/webhook/{webhookId}/manual-result
+      const manualResultUrl = `${baseUrl}/api/v1/integrations/webhook/${webhookId}/manual-result`;
+
+      // 构造请求体（不包含 webhookId）
+      const requestBody = {
         documentId,
         decision,
         approver: {
@@ -60,16 +73,22 @@ export default async function pushManualResultRoute(fastify, opts) {
         timestamp: Math.floor(Date.now() / 1000),
       };
 
-      // 生成签名
-      const { timestamp, nonce, signature } = generateSignatureInfo(event, secret);
+      // 构建签名 payload（包含 webhookId，因为 oRPC 会将路径参数合并到 input 中）
+      const signaturePayload = {
+        webhookId,
+        ...requestBody,
+      };
 
-      fastify.log.info('[推送人工审批结果] 请求详情', {
-        url: webhookUrl,
-        event,
-      });
+      // 生成签名
+      const { timestamp, nonce, signature } = generateSignatureInfo(signaturePayload, secret);
+
+      console.log('\n=== [推送人工审批结果] 请求详情 ===');
+      console.log('URL:', manualResultUrl);
+      console.log('请求体:', JSON.stringify(requestBody, null, 2));
+      console.log('签名 payload:', JSON.stringify(signaturePayload, null, 2));
 
       // 发送请求
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(manualResultUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,8 +96,8 @@ export default async function pushManualResultRoute(fastify, opts) {
           'x-webhook-timestamp': timestamp.toString(),
           'x-webhook-nonce': nonce,
         },
-        body: JSON.stringify(event),
-        dispatcher: webhookUrl.startsWith('https') ? httpsAgent : undefined
+        body: JSON.stringify(requestBody),
+        dispatcher: manualResultUrl.startsWith('https') ? httpsAgent : undefined
       });
 
       if (!response.ok) {

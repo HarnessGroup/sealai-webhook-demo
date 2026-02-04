@@ -67,8 +67,6 @@ PORT=5500 npm start
 open http://localhost:5500
 ```
 
-**⚠️ 注意**: macOS 的 5000 端口被 AirPlay 占用，建议使用 5500 端口！
-
 ### 开发模式（支持热重载）
 
 ```bash
@@ -130,12 +128,13 @@ docker-compose down
 
 1. **加载示例单据**
    - 点击"加载示例单据（无附件）"加载基础模板
-   - 点击"加载示例单据（带附件）"加载包含随机图片附件的模板
+   - 点击"加载示例单据（带附件）"加载包含本地示例文件（100KB .doc 文件）的模板
    - 附件 URL 会自动包含在 JSON 的 `attachments` 字段中
 
 2. **编辑单据（可选）**
    - 可以手动修改 JSON 内容
    - 可以在 `attachments` 字段的 `value` 数组中添加更多附件 URL
+   - 附件 URL 必须可公开访问
 
 3. **推送**
    - 点击"推送单据"按钮
@@ -218,6 +217,11 @@ docker-compose down
   }
 }
 ```
+
+**注意**：
+- 将 `https://example.com/...` 替换为你实际的附件 URL
+- 附件 URL 必须可公开访问
+- 本 Demo 提供了测试用的本地文件：`http://localhost:5500/file-sample_100kB.docx`
 
 **成功响应**（200）：
 
@@ -611,8 +615,7 @@ curl http://localhost:5500/api/receive-result
      "key": "attachments",
      "type": "ATTACHMENT",
      "value": [
-       "https://httpbin.org/image/jpeg",
-       "https://via.placeholder.com/600x400.jpg"
+       "http://localhost:5500/file-sample_100kB.docx"
      ]
    }
    ```
@@ -621,7 +624,7 @@ curl http://localhost:5500/api/receive-result
 
 **预期结果**：
 - 显示"附件下载中..."
-- 显示"附件上传中..."
+- 显示"附件上传中..."（上传 100KB 的 .doc 文件）
 - 最后显示"单据推送成功"
 
 ### 场景 3：模拟人工审批

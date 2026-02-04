@@ -76,8 +76,7 @@ function generateExampleDocument(withAttachments = false) {
         label: '附件',
         type: 'ATTACHMENT',
         value: withAttachments ? [
-          'https://httpbin.org/image/jpeg',
-          'https://httpbin.org/image/png'
+          `${window.location.origin}/file-sample_100kB.docx`
         ] : [],
       },
     ],

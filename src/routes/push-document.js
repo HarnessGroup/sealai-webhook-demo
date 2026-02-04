@@ -48,15 +48,16 @@ export default async function pushDocumentRoute(fastify, opts) {
         attachmentCount: attachmentUrls?.length || 0,
       });
 
-      // 提取 webhookId
+      // 提取 webhookId（从 URL 中提取，格式：/v1/integrations/webhook/{webhookId}/...）
       const webhookIdMatch = webhookUrl.match(/webhook\/([^/]+)/);
       if (!webhookIdMatch) {
-        return reply.status(400).send({ error: 'webhookUrl 格式错误，无法提取 webhookId' });
+        return reply.status(400).send({ error: 'webhookUrl 格式错误，无法提取 webhookId。格式应为：https://domain/v1/integrations/webhook/{webhookId}/...' });
       }
       const webhookId = webhookIdMatch[1];
 
-      // 构建基础 URL（去掉路径）
-      const baseUrl = webhookUrl.substring(0, webhookUrl.indexOf('/api'));
+      // 构建基础 URL（去掉路径，保留协议和域名）
+      const urlObj = new URL(webhookUrl);
+      const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
 
       // 如果 attachmentUrls 为空，尝试从 documentData.fields 中提取
       let finalAttachmentUrls = attachmentUrls || [];
@@ -209,11 +210,35 @@ export default async function pushDocumentRoute(fastify, opts) {
         }
       }
 
-      // 推送单据到 SealAI
-      fastify.log.info('[推送单据] 开始推送到 SealAI');
-      const { timestamp, nonce, signature } = generateSignatureInfo(finalDocumentData, secret);
+      // 构建新的接口路径：/api/v1/integrations/webhook/{webhookId}/document
+      const documentPushUrl = `${baseUrl}/api/v1/integrations/webhook/${webhookId}/document`;
 
-      const pushResponse = await fetch(webhookUrl, {
+      fastify.log.info(`[推送单据] 请求详情: ${documentPushUrl}`);
+
+      // 构建请求体（不包含 webhookId）
+      const requestBody = {
+        documentId: finalDocumentData.documentId,
+        documentSN: finalDocumentData.documentSN,
+        ...(finalDocumentData.documentURL && { documentURL: finalDocumentData.documentURL }),
+        startTime: finalDocumentData.startTime,
+        fields: finalDocumentData.fields,
+      };
+
+      // 构建签名 payload（包含 webhookId，因为 oRPC 会将路径参数合并到 input 中）
+      const signaturePayload = {
+        webhookId,
+        ...requestBody,
+      };
+
+      // 推送单据到 SealAI
+      console.log('\n=== [推送单据] 开始推送到 SealAI ===');
+      console.log('URL:', documentPushUrl);
+      console.log('请求体:', JSON.stringify(requestBody, null, 2));
+      console.log('签名 payload:', JSON.stringify(signaturePayload, null, 2));
+      
+      const { timestamp, nonce, signature } = generateSignatureInfo(signaturePayload, secret);
+
+      const pushResponse = await fetch(documentPushUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,8 +246,8 @@ export default async function pushDocumentRoute(fastify, opts) {
           'x-webhook-timestamp': timestamp.toString(),
           'x-webhook-nonce': nonce,
         },
-        body: JSON.stringify(finalDocumentData),
-        dispatcher: webhookUrl.startsWith('https') ? undiciAgent : undefined
+        body: JSON.stringify(requestBody),
+        dispatcher: documentPushUrl.startsWith('https') ? undiciAgent : undefined
       });
 
       if (!pushResponse.ok) {
