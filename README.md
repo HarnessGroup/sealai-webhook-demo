@@ -422,12 +422,19 @@ const nonce = crypto.randomBytes(16).toString('hex'); // 32位十六进制字符
 
 #### 3. 构造 Payload
 
-- **附件上传时**：使用空对象 `{}`
+- **附件上传时**：使用 `{ webhookId, files: [{ name, size, type }] }`
 - **单据推送时**：使用完整的单据 JSON 对象
 
 ```javascript
 // 附件上传
-const payload = {};
+const payload = {
+  webhookId: 'your-webhook-id',
+  files: [{
+    name: 'document.pdf',
+    size: 102400,
+    type: 'application/pdf'
+  }]
+};
 
 // 单据推送
 const payload = {

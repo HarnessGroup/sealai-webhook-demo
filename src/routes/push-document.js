@@ -117,9 +117,20 @@ export default async function pushDocumentRoute(fastify, opts) {
 
             // 上传到 SealAI（使用 Node.js 原生 http/https 模块以正确处理 multipart/form-data）
             const attachmentUploadUrl = `${baseUrl}/api/v1/integrations/webhook/${webhookId}/attachments`;
-            
-            // 生成签名（附件上传时 payload 为空对象）
-            const { timestamp, nonce, signature } = generateSignatureInfo({}, secret);
+
+            // 生成签名（包含 webhookId 和文件元数据）
+            const fileMetadata = [{
+              name: fileName,
+              size: fileBuffer.length,
+              type: contentType,
+            }];
+
+            const signaturePayload = {
+              webhookId,
+              files: fileMetadata,
+            };
+
+            const { timestamp, nonce, signature } = generateSignatureInfo(signaturePayload, secret);
 
             // 构建 multipart/form-data
             const form = new FormData();
