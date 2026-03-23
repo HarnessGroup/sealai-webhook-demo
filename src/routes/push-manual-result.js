@@ -92,6 +92,7 @@ export default async function pushManualResultRoute(fastify, opts) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${secret}`,
           'x-webhook-signature': signature,
           'x-webhook-timestamp': timestamp.toString(),
           'x-webhook-nonce': nonce,
