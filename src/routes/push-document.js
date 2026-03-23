@@ -128,25 +128,31 @@ export default async function pushDocumentRoute(fastify, opts) {
               contentType: contentType,
             });
 
-            fastify.log.info('[附件上传]', attachmentUploadUrl);
-
             // 使用 Promise 包装 form.submit
             const uploadResult = await new Promise((resolve, reject) => {
               const url = new URL(attachmentUploadUrl);
               const isHttps = url.protocol === 'https:';
               const client = isHttps ? https : http;
               
+              const requestHeaders = {
+                'x-webhook-signature': signature,
+                'x-webhook-timestamp': timestamp.toString(),
+                'x-webhook-nonce': nonce,
+                'Authorization': `Bearer ${secret}`,
+                ...form.getHeaders(),
+              };
+
+              console.log('\n=== [附件上传] 请求报文 ===');
+              console.log(`POST ${attachmentUploadUrl}`);
+              console.log('Headers:', JSON.stringify(requestHeaders, null, 2));
+              console.log('Body: <multipart/form-data>', { fileName, size: fileBuffer.length, contentType });
+
               const options = {
                 method: 'POST',
                 hostname: url.hostname,
                 port: url.port || (isHttps ? 443 : 80),
                 path: url.pathname + url.search,
-                headers: {
-                  'x-webhook-signature': signature,
-                  'x-webhook-timestamp': timestamp.toString(),
-                  'x-webhook-nonce': nonce,
-                  ...form.getHeaders(),
-                },
+                headers: requestHeaders,
                 agent: isHttps ? httpsAgent : undefined,
               };
 
